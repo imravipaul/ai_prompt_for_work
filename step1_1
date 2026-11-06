@@ -1,1 +1,283 @@
-https://chatgpt.com/share/e/6aed59dd-2920-8337-9192-c8c882429238
+You are continuing an existing project discussion from another ChatGPT account.
+
+Please treat the following as the full working context and continue from here without restarting the discovery.
+
+PROJECT NAME:
+AI-Assisted Databricks Insurance Process Onboarding
+
+CURRENT ARCHITECTURE:
+
+SQL Server / External Source
+→ Databricks Foreign Catalog
+→ Bronze Layer
+→ Silver Layer
+→ Gold Layer
+→ BDX Reports
+
+CURRENT IMPLEMENTED INSURANCE PROCESSES:
+
+* Ovation
+* Ignite
+* Davis
+
+ARCHITECTURE PATTERN:
+
+Each insurance process has its own Bronze table or Bronze ingestion path.
+
+Example:
+
+Ovation
+→ Ovation Bronze
+
+Ignite
+→ Ignite Bronze
+
+Davis
+→ Davis Bronze
+
+After Bronze, the processes load into a common/shared Silver table.
+
+The Gold layer is also shared/common.
+
+So the architecture is approximately:
+
+Foreign Catalog
+→ Process-Specific Bronze
+→ Common Silver
+→ Common Gold
+→ BDX Reports
+
+BUSINESS LOGIC APPROACH:
+
+For each insurance process, an existing BDX SQL query is used as the business-logic reference.
+
+The BDX query contains logic such as:
+
+* joins
+* filters
+* CASE statements
+* mappings
+* derived columns
+* aggregations
+* null handling
+* transformations
+* business rules
+
+When a process such as Ovation was implemented, the BDX logic was understood and then translated into Databricks Bronze/Silver/Gold processing.
+
+NEW PROCESS TO ONBOARD:
+
+Meridian Hennies
+
+A new BDX query is available for Meridian Hennies.
+
+The Meridian query is somewhat different from the existing processes.
+
+GOAL:
+
+Build a repeatable AI-assisted process where an AI coding agent can:
+
+1. Understand the existing Ovation, Ignite and Davis implementations.
+2. Identify the common onboarding pattern.
+3. Analyze the Meridian Hennies BDX query.
+4. Reverse-engineer the Meridian business logic.
+5. Compare Meridian logic against existing Ovation, Ignite and Davis logic.
+6. Identify which logic can be reused.
+7. Identify which logic needs modification.
+8. Identify genuinely new Meridian-specific logic.
+9. Create the Meridian Bronze implementation.
+10. Integrate Meridian into the common Silver layer.
+11. Determine required Gold-layer changes.
+12. Generate validation queries.
+13. Compare original Meridian BDX output against the Databricks Gold output.
+14. Produce documentation and lineage.
+
+IMPORTANT DESIGN PRINCIPLE:
+
+Always follow this sequence:
+
+UNDERSTAND
+→ COMPARE
+→ REUSE
+→ PLAN
+→ IMPLEMENT
+→ VALIDATE
+
+Do not jump directly from the Meridian BDX query to code generation.
+
+TOOLING APPROACH:
+
+The coding work may be performed using Claude Code, Codex, or another repository-aware coding agent.
+
+The preferred workflow is repository-based so that the agent can:
+
+* inspect notebooks
+* inspect SQL
+* inspect Python/PySpark
+* search references
+* inspect configuration
+* trace dependencies
+* modify files
+* generate tests
+* show diffs
+
+LONG-TERM DIRECTION:
+
+Eventually this may become a metadata-driven onboarding framework using files such as:
+
+/docs/architecture.md
+/docs/onboarding-pattern.md
+/docs/silver-data-model.md
+/docs/gold-data-model.md
+
+/reference/bdx/ovation.sql
+/reference/bdx/ignite.sql
+/reference/bdx/davis.sql
+/reference/bdx/meridian.sql
+
+/config/processes/meridian.yaml
+
+Possible future process_spec.yaml structure:
+
+process:
+name: MERIDIAN
+business_name: Meridian Hennies
+
+source:
+catalog: foreign_sqlserver
+schema: dbo
+object: vw_meridian
+
+bronze:
+table: bronze.meridian
+
+silver:
+table: silver.insurance
+process_code: MERIDIAN
+
+gold:
+table: gold.insurance_bdx
+
+reference:
+bdx_query: reference/bdx/meridian.sql
+
+However, do not build this yet.
+
+We are proceeding step by step.
+
+CURRENT STEP:
+
+STEP 1 — EXISTING SYSTEM DISCOVERY
+
+For this step, do NOT analyze Meridian yet and do NOT modify code.
+
+The immediate objective is to understand how Ovation, Ignite and Davis are currently implemented.
+
+Use the following Step 1 instruction:
+
+Act as a Senior Azure Databricks Data Architect.
+
+For this step, DO NOT modify any code.
+
+I want you to first understand the existing implementation for these insurance processes:
+
+* Ovation
+* Ignite
+* Davis
+
+Inspect the entire repository and identify all files, notebooks, SQL scripts, PySpark code, configuration files, workflow definitions, and dependencies related to these three processes.
+
+Your goal is to understand how a new insurance process is currently implemented in this Databricks project.
+
+Please identify:
+
+1. Source / Foreign Catalog objects used
+2. Bronze tables created for each process
+3. Bronze ingestion logic
+4. Silver tables used
+5. How all three processes load into the common Silver layer
+6. Gold tables used
+7. Process-specific conditions
+8. Process identifiers or source codes
+9. Joins
+10. Filters
+11. CASE expressions
+12. Derived columns
+13. Data type conversions
+14. Deduplication logic
+15. Null handling
+16. Audit columns
+17. Incremental load logic
+18. MERGE logic
+19. Configuration files
+20. Workflow / job orchestration
+
+Then compare Ovation, Ignite and Davis and produce:
+
+A. A simple architecture flow
+
+Foreign Catalog
+→ Bronze
+→ Silver
+→ Gold
+
+B. A comparison table:
+
+Component | Ovation | Ignite | Davis | Common Pattern
+
+C. Identify what is:
+
+* COMMON / reusable
+* PROCESS-SPECIFIC
+* CONFIGURATION-DRIVEN
+* HARDCODED
+
+D. Identify which existing process would be the best reference/template for onboarding another insurance process.
+
+IMPORTANT:
+
+Do not write or modify any code yet.
+
+Do not assume anything that cannot be verified from the repository.
+
+If something is unclear, mark it as:
+
+REQUIRES CONFIRMATION
+
+At the end, give a concise summary titled:
+
+"Existing Insurance Process Onboarding Pattern"
+
+NEXT STEP AFTER STEP 1:
+
+Once Step 1 is complete, do not immediately code Meridian.
+
+The next stage should be:
+
+STEP 2 — Existing Process Pattern Extraction
+
+Then:
+
+STEP 3 — Meridian BDX Query Reverse Engineering
+
+Then:
+
+STEP 4 — Meridian vs Existing Logic Comparison
+
+Then:
+
+STEP 5 — Source-to-Target Mapping and Gap Analysis
+
+Then:
+
+STEP 6 — Implementation Plan
+
+Then:
+
+STEP 7 — Implementation
+
+Then:
+
+STEP 8 — Validation and Reconciliation
+
+For now, only perform STEP 1.
