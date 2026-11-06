@@ -1,0 +1,1126 @@
+हाँ, यह use case **AI-assisted onboarding automation for a new insurance process** के लिए बहुत suitable है।
+
+आपके case में मैं सिर्फ “एक prompt” नहीं बनाऊँगा। बेहतर approach यह है कि आप एक **repeatable framework** बनाओ, ताकि आज Meridian/Hennies हो, कल कोई और insurance process आए, तो AI existing Ovation / Ignite / Davis implementation देखकर नया process onboard कर सके।
+
+मैंने internal connected company sources में इन project names के लिए relevant documentation नहीं पाया, इसलिए नीचे का design आपकी बताई architecture और workflow पर आधारित है।
+
+आपका current pattern roughly यह है:
+
+```text
+SQL Server / Foreign Catalog
+        |
+        v
+      BRONZE
+        |
+        |  Process-specific ingestion
+        |
+        +--> Ovation Bronze
+        +--> Ignite Bronze
+        +--> Davis Bronze
+        +--> Meridian Bronze   <-- NEW
+        |
+        v
+      SILVER
+   Common Silver Table
+        |
+        | Business logic
+        | Standardization
+        | Mapping
+        | Deduplication
+        | Derived columns
+        v
+       GOLD
+   Common Gold Table
+        |
+        v
+     BDX Reports
+```
+
+और सबसे important बात:
+
+```text
+Existing BDX Query
+        ↓
+Understand business logic
+        ↓
+Find equivalent implementation
+in existing processes
+        ↓
+Adapt logic for new process
+        ↓
+Bronze → Silver → Gold
+```
+
+यही चीज हमें AI agent को systematic तरीके से करानी है।
+
+## मैं कौन सा tool recommend करूँगा?
+
+इस काम के लिए मेरी preference होगी:
+
+**Codex या Claude Code running directly inside the repository.**
+
+सिर्फ normal Claude/ChatGPT browser chat से भी आप query analyze करवा सकते हो, लेकिन repository-level काम में coding agent ज्यादा useful होगा क्योंकि उसे चाहिए:
+
+```text
+Read existing notebooks
+Read .sql files
+Read PySpark
+Search entire repository
+Compare implementation patterns
+Follow references
+Modify files
+Create new files
+Run tests
+Show git diff
+```
+
+Codex specifically repo exploration, code comparison, testing और multi-file modifications जैसे agentic coding workflows के लिए designed है. ([OpenAI Developers][1])
+
+लेकिन tool से ज्यादा important है **context structure**।
+
+---
+
+# इसे 6-stage process बनाइए
+
+```text
+              NEW INSURANCE PROCESS
+                     Meridian
+                        |
+                        v
+             1. DISCOVERY AGENT
+                        |
+         +--------------+--------------+
+         |              |              |
+      Ovation        Ignite          Davis
+         |              |              |
+         +--------------+--------------+
+                        |
+                        v
+             Existing Pattern Map
+                        |
+                        v
+              2. QUERY ANALYZER
+                        |
+                 Meridian BDX SQL
+                        |
+                        v
+             Business Logic Spec
+                        |
+                        v
+             3. COMPARISON AGENT
+                        |
+             Existing vs Meridian
+                        |
+                        v
+              Gap / Mapping Matrix
+                        |
+                        v
+             4. CODE GENERATOR
+                 /              \
+                v                v
+          Meridian Bronze    Silver Logic
+                                |
+                                v
+                          Common Silver
+                                |
+                                v
+                           Gold Logic
+                                |
+                                v
+             5. VALIDATION AGENT
+                                |
+                                v
+              6. DOCUMENTATION
+```
+
+इसका बड़ा फायदा यह है कि AI सीधे code लिखना शुरू नहीं करेगा।
+
+पहले:
+
+```text
+UNDERSTAND
+   ↓
+COMPARE
+   ↓
+MAP
+   ↓
+PLAN
+   ↓
+CODE
+   ↓
+TEST
+```
+
+यही सबसे critical चीज है।
+
+---
+
+# Stage 1 — AI को पहले existing system पढ़ने दो
+
+AI को explicitly बोलो कि पहले इन तीन working implementations को study करे:
+
+```text
+Ovation
+Ignite
+Davis
+```
+
+और identify करे:
+
+```text
+Source tables/views
+Foreign catalog references
+Bronze tables
+Bronze ingestion
+Column mappings
+Silver transformations
+Silver common table
+Gold transformations
+BDX-specific rules
+Joins
+Filters
+CASE statements
+Lookups
+Deduplication
+Null handling
+Data types
+Audit columns
+Incremental logic
+Merge logic
+Process identifiers
+```
+
+उसका पहला output ideally code नहीं होना चाहिए।
+
+पहले वह ऐसी table बनाए:
+
+| Area       | Ovation  | Ignite   | Davis    | Common Pattern   |
+| ---------- | -------- | -------- | -------- | ---------------- |
+| Bronze     | Separate | Separate | Separate | Process-specific |
+| Silver     | Common   | Common   | Common   | Shared table     |
+| Gold       | Common   | Common   | Common   | Shared           |
+| Process ID | OVATION  | IGNITE   | DAVIS    | Required         |
+| Dedup      | X logic  | X logic  | X logic  | Similar          |
+| Date logic | ...      | ...      | ...      | ...              |
+
+फिर AI को architecture समझ आने लगेगा।
+
+---
+
+# Stage 2 — Meridian BDX query को reverse-engineer करवाओ
+
+Meridian query को सिर्फ SQL query की तरह नहीं देखना है।
+
+AI से बोलो इसे **Business Logic Specification** में convert करे।
+
+उदाहरण:
+
+```sql
+CASE
+    WHEN status = 'A' THEN 'ACTIVE'
+    WHEN status = 'C' THEN 'CLOSED'
+END AS policy_status
+```
+
+AI इसे convert करे:
+
+```text
+Rule ID: MRD-001
+
+Target Column:
+policy_status
+
+Source:
+status
+
+Logic:
+A → ACTIVE
+C → CLOSED
+
+Type:
+Derived column / CASE mapping
+```
+
+Join:
+
+```sql
+LEFT JOIN customer c
+ON p.customer_id = c.customer_id
+```
+
+convert हो:
+
+```text
+Rule ID: MRD-J01
+
+Primary source:
+policy
+
+Joined source:
+customer
+
+Join type:
+LEFT JOIN
+
+Join condition:
+policy.customer_id = customer.customer_id
+
+Purpose:
+Customer enrichment
+```
+
+यह intermediate representation बहुत powerful है।
+
+---
+
+# Stage 3 — Meridian को existing implementations से compare करवाओ
+
+AI को यह नहीं कहना:
+
+> Meridian query देखकर code बना दो।
+
+बल्कि:
+
+> Meridian query में हर business rule के लिए check करो कि equivalent या similar implementation Ovation, Ignite या Davis में already मौजूद है या नहीं।
+
+Output:
+
+| Meridian Rule   | Ovation   | Ignite | Davis     | Decision     |
+| --------------- | --------- | ------ | --------- | ------------ |
+| Policy status   | Similar   | Same   | Different | Reuse Ignite |
+| Product mapping | Different | None   | Similar   | Adapt Davis  |
+| Customer join   | Same      | Same   | Same      | Reuse common |
+| Premium calc    | None      | None   | None      | New logic    |
+
+यह आपके पूरे automation का सबसे valuable हिस्सा होगा।
+
+क्योंकि तब AI reinvent नहीं करेगा।
+
+वह बोलेगा:
+
+```text
+70% existing pattern reusable
+20% adaptation required
+10% genuinely new business logic
+```
+
+---
+
+# Stage 4 — फिर implementation plan generate हो
+
+Coding से पहले AI ऐसा plan दे:
+
+```text
+Meridian Implementation Plan
+
+1. Add Meridian Bronze ingestion
+   Source:
+   foreign_catalog.xxx.xxx
+
+   New Bronze:
+   bronze.meridian_xxx
+
+2. Reuse existing ingestion framework from:
+   bronze_ovation.py
+
+3. Add Meridian-specific mappings:
+   policy_type
+   coverage_code
+   premium_amount
+
+4. Modify common Silver transformation:
+   Add PROCESS_NAME = 'MERIDIAN'
+
+5. Reuse existing:
+   customer mapping
+   date normalization
+   audit columns
+   dedup logic
+
+6. Implement Meridian-specific:
+   X
+   Y
+   Z
+
+7. Gold:
+   No schema change / schema change required...
+
+8. Validation:
+   source vs bronze count
+   bronze vs silver count
+   duplicates
+   null validation
+   BDX reconciliation
+```
+
+आप review करोगे।
+
+फिर code generation।
+
+---
+
+# Stage 5 — AI को validation भी करवानी है
+
+यह बहुत important है।
+
+सिर्फ code generation automation मत बनाना।
+
+इसके साथ automatically generate हों:
+
+```text
+Source → Bronze reconciliation
+Bronze → Silver reconciliation
+Silver → Gold reconciliation
+```
+
+Example:
+
+```sql
+SELECT COUNT(*)
+FROM foreign_catalog.schema.meridian_view;
+```
+
+vs
+
+```sql
+SELECT COUNT(*)
+FROM bronze.meridian_table;
+```
+
+Duplicates:
+
+```sql
+SELECT
+    business_key,
+    COUNT(*)
+FROM silver.insurance
+WHERE process_name = 'MERIDIAN'
+GROUP BY business_key
+HAVING COUNT(*) > 1;
+```
+
+Nulls:
+
+```sql
+SELECT
+    SUM(CASE WHEN policy_id IS NULL THEN 1 ELSE 0 END) policy_id_nulls,
+    SUM(CASE WHEN customer_id IS NULL THEN 1 ELSE 0 END) customer_id_nulls
+FROM silver.insurance
+WHERE process_name = 'MERIDIAN';
+```
+
+और सबसे important:
+
+```text
+Original Meridian BDX Query output
+              vs
+New Gold Layer output
+```
+
+इन दोनों का reconciliation होना चाहिए।
+
+यही prove करेगा कि migration सही हुआ।
+
+---
+
+# आपका Master Prompt
+
+यह prompt repository root पर Claude Code/Codex को देना सबसे useful रहेगा।
+
+You are acting as a Senior Azure Databricks Data Architect, Data Engineer, SQL Reverse-Engineering Specialist, and Code Migration Agent.
+
+Your task is to onboard a new insurance process named MERIDIAN HENNIES into an existing Azure Databricks Medallion Architecture.
+
+IMPORTANT:
+
+Do not immediately write code.
+
+First understand the complete existing implementation, derive the reusable architecture and business patterns, analyze the Meridian BDX query, compare both, and only then propose and implement the solution.
+
+# SYSTEM CONTEXT
+
+The current architecture is approximately:
+
+SQL Server / External Source
+→ Databricks Foreign Catalog
+→ Bronze
+→ Silver
+→ Gold
+→ BDX Reporting
+
+Existing insurance processes already implemented include:
+
+* Ovation
+* Ignite
+* Davis
+
+Each insurance process has its own Bronze ingestion/table.
+
+Example:
+
+Ovation → Ovation Bronze
+Ignite → Ignite Bronze
+Davis → Davis Bronze
+
+However, the processes ultimately load into a shared/common Silver model and subsequently a shared/common Gold model.
+
+Existing BDX queries were previously used as business-logic references while implementing these processes.
+
+A new process named:
+
+MERIDIAN HENNIES
+
+must now be onboarded using the same architectural standards.
+
+The Meridian BDX query may contain logic that is different from the existing processes.
+
+Your job is to determine what should be reused, adapted, or newly implemented.
+
+# PHASE 1 — REPOSITORY DISCOVERY
+
+Inspect the entire repository before making any code changes.
+
+Search all relevant:
+
+* Databricks notebooks
+* Python files
+* PySpark files
+* SQL files
+* configuration files
+* workflow definitions
+* YAML/JSON files
+* parameter files
+* utility modules
+* DDL scripts
+* test files
+* documentation
+
+Identify everything related to:
+
+Ovation
+Ignite
+Davis
+
+Do not inspect filenames only.
+
+Trace imports, function calls, table references, notebooks, configuration values and dependencies.
+
+Create an Existing Process Architecture Map containing:
+
+1. source objects
+2. foreign catalog objects
+3. bronze tables
+4. bronze ingestion logic
+5. silver tables
+6. silver transformations
+7. gold tables
+8. gold transformations
+9. process identifiers
+10. joins
+11. filters
+12. business rules
+13. derived columns
+14. CASE expressions
+15. lookups
+16. data-type conversions
+17. null handling
+18. deduplication logic
+19. audit columns
+20. incremental-load logic
+21. MERGE logic
+22. partitioning
+23. error handling
+24. workflow orchestration
+25. configuration-driven logic
+
+Identify which pieces are:
+
+COMMON
+PROCESS-SPECIFIC
+CONFIGURATION-DRIVEN
+HARDCODED
+
+# PHASE 2 — DETERMINE THE EXISTING DESIGN PATTERN
+
+Compare Ovation, Ignite and Davis.
+
+Do not treat each implementation independently.
+
+Identify the common template or design pattern followed when a new insurance process is onboarded.
+
+Produce a comparison matrix:
+
+Component | Ovation | Ignite | Davis | Common Pattern | Differences
+
+Determine:
+
+* what is always created for a new process
+* what is reused
+* what gets modified
+* what gets configured
+* what changes in Bronze
+* what changes in Silver
+* what changes in Gold
+
+Explicitly identify reusable code, utilities and configuration.
+
+# PHASE 3 — ANALYZE THE MERIDIAN BDX QUERY
+
+Locate and completely analyze the supplied Meridian Hennies BDX query.
+
+Do not simply summarize the SQL.
+
+Reverse-engineer it into individual business rules.
+
+For every SELECT expression determine:
+
+* source table
+* source column
+* target/output column
+* transformation
+* business meaning where inferable
+
+Identify all:
+
+* CTEs
+* subqueries
+* joins
+* join types
+* join conditions
+* filters
+* CASE expressions
+* COALESCE/ISNULL logic
+* aggregations
+* window functions
+* GROUP BY
+* HAVING
+* DISTINCT
+* UNION/UNION ALL
+* derived columns
+* date calculations
+* numeric calculations
+* string transformations
+* lookup logic
+* constants
+* data-type conversions
+* null handling
+* deduplication
+* business exclusions
+
+Give every discovered Meridian business rule a unique Rule ID.
+
+Example:
+
+MER-R001
+MER-R002
+MER-J001
+MER-F001
+
+Create a structured Meridian Business Logic Specification.
+
+# PHASE 4 — COMPARE MERIDIAN WITH EXISTING PROCESSES
+
+For every Meridian business rule, search the Ovation, Ignite and Davis implementations for logically equivalent code.
+
+Do not compare code by text alone.
+
+Compare semantic behavior.
+
+Classify every Meridian rule as one of:
+
+EXACT REUSE
+REUSE WITH CONFIGURATION
+REUSE WITH MODIFICATION
+NEW MERIDIAN LOGIC
+UNCERTAIN
+
+Generate a matrix:
+
+Meridian Rule
+Meridian Logic
+Matching Existing Process
+Existing File/Notebook
+Existing Logic
+Similarity
+Required Change
+Recommendation
+
+Prefer existing tested implementation over creating duplicate code.
+
+Do not force reuse when the business semantics are different.
+
+# PHASE 5 — SOURCE TO TARGET MAPPING
+
+Generate a proposed Meridian source-to-target mapping.
+
+Include:
+
+Source System
+Source Table/View
+Source Column
+Bronze Table
+Bronze Column
+Silver Table
+Silver Column
+Gold Table
+Gold Column
+Data Type
+Transformation
+Business Rule
+Existing Logic Reused From
+Meridian Rule ID
+
+Clearly mark columns where mapping cannot be conclusively determined.
+
+Never invent business rules.
+
+# PHASE 6 — GAP ANALYSIS
+
+Identify everything required for Meridian that does not currently exist.
+
+Categorize gaps as:
+
+SOURCE GAP
+BRONZE GAP
+SILVER GAP
+GOLD GAP
+BUSINESS-RULE GAP
+SCHEMA GAP
+CONFIGURATION GAP
+LOOKUP GAP
+WORKFLOW GAP
+TESTING GAP
+
+Explain why each gap exists.
+
+# PHASE 7 — IMPLEMENTATION PLAN
+
+Before modifying any code, produce a detailed implementation plan.
+
+Specify:
+
+Files to create
+Files to modify
+Tables to create
+Tables to modify
+Configuration changes
+New columns if required
+Existing utilities to reuse
+Existing logic to reuse
+New Meridian-specific logic
+Workflow changes
+Deployment changes
+Testing requirements
+
+For every proposed modification include:
+
+WHY the change is required.
+
+Do not write code until this analysis is complete.
+
+# PHASE 8 — IMPLEMENTATION
+
+After determining the correct design, implement Meridian following the existing project conventions.
+
+Bronze:
+
+Create Meridian-specific ingestion using the same architectural pattern as the existing processes.
+
+Read from the appropriate foreign catalog source.
+
+Preserve:
+
+* source fidelity
+* audit columns
+* ingestion timestamps
+* existing error-handling standards
+
+Silver:
+
+Load Meridian into the existing common Silver model whenever the current architecture supports it.
+
+Reuse existing mappings and transformations whenever semantically equivalent.
+
+Add Meridian-specific business logic only where required.
+
+Ensure an appropriate process/source identifier such as MERIDIAN is populated according to the existing project convention.
+
+Gold:
+
+Determine whether Meridian requires:
+
+* no Gold modification
+* configuration modification
+* transformation modification
+* schema modification
+
+Follow the existing architectural pattern.
+
+Do not create a new Silver or Gold model merely because Meridian is a new source unless the existing architecture or business requirements require it.
+
+# PHASE 9 — VALIDATION
+
+Generate and, where execution access exists, run validation queries.
+
+Validate:
+
+SOURCE → BRONZE
+BRONZE → SILVER
+SILVER → GOLD
+
+Include:
+
+row-count reconciliation
+distinct business-key counts
+duplicate detection
+mandatory-column null checks
+data-type checks
+business-rule checks
+join fallout checks
+rejected-record counts
+aggregate reconciliation
+
+Most importantly, compare the output produced by the existing Meridian BDX query with the equivalent output generated from the new Databricks Gold implementation.
+
+For every mismatch determine whether it results from:
+
+data issue
+business-rule difference
+join difference
+filter difference
+mapping difference
+datatype/precision difference
+null-handling difference
+
+# PHASE 10 — CODE QUALITY
+
+Do not duplicate existing logic unnecessarily.
+
+Prefer:
+
+shared functions
+configuration
+reusable transformations
+parameterization
+
+over copying large blocks of Ovation/Ignite/Davis code.
+
+Follow the repository's existing:
+
+naming conventions
+folder structure
+coding style
+logging
+exception handling
+table naming
+workflow design
+
+# PHASE 11 — SAFETY RULES
+
+Do NOT:
+
+* drop existing production tables
+* overwrite working Ovation/Ignite/Davis logic
+* change unrelated code
+* remove existing business rules
+* guess missing mappings
+* invent source columns
+* invent business requirements
+
+If something cannot be determined, mark it:
+
+REQUIRES BUSINESS CONFIRMATION
+
+and explain exactly what information is missing.
+
+# PHASE 12 — FINAL OUTPUT
+
+At completion provide:
+
+1. Existing Architecture Summary
+2. Existing Process Comparison
+3. Meridian BDX Logic Breakdown
+4. Meridian vs Existing Logic Comparison
+5. Source-to-Target Mapping
+6. Gap Analysis
+7. Implementation Plan
+8. Files Created
+9. Files Modified
+10. Reused Logic
+11. New Meridian Logic
+12. Validation Results
+13. Outstanding Questions
+14. Risks
+15. Recommended Improvements
+
+Also provide a final Mermaid lineage diagram:
+
+Foreign Catalog
+→ Meridian Bronze
+→ Common Silver
+→ Common Gold
+→ BDX
+
+Annotate the main transformations and reused components.
+
+CRITICAL PRINCIPLE:
+
+Understand first.
+Compare second.
+Reuse third.
+Implement fourth.
+Validate last.
+
+Never jump directly from the Meridian BDX query to generated code.
+
+यह master prompt आप बार-बार reuse कर सकते हो।
+
+---
+
+# इसे और powerful कैसे बनाएं
+
+हर बार prompt में पूरा Ovation/Ignite/Davis explain करने की जरूरत नहीं होनी चाहिए।
+
+Repository में एक permanent file बना दीजिए:
+
+```text
+/docs
+    architecture.md
+    onboarding-pattern.md
+    silver-data-model.md
+    gold-data-model.md
+
+/prompts
+    onboard-insurance-process.md
+
+/reference
+    bdx/
+        ovation.sql
+        ignite.sql
+        davis.sql
+        meridian.sql
+```
+
+और implementation:
+
+```text
+/src
+    bronze/
+        ovation/
+        ignite/
+        davis/
+        meridian/
+
+    silver/
+        common/
+
+    gold/
+        common/
+```
+
+फिर AI का context stable हो जाएगा।
+
+---
+
+# उससे भी अच्छा: `PROCESS_SPEC.yaml`
+
+मैं यह strongly recommend करता हूँ।
+
+हर insurance process के लिए configuration रखें:
+
+```yaml
+process:
+  name: MERIDIAN
+  business_name: Meridian Hennies
+
+source:
+  catalog: foreign_sqlserver
+  schema: dbo
+  object: vw_meridian
+
+bronze:
+  table: bronze.meridian
+
+silver:
+  table: silver.insurance
+  process_code: MERIDIAN
+
+gold:
+  table: gold.insurance_bdx
+
+reference:
+  bdx_query: reference/bdx/meridian.sql
+```
+
+फिर अगला process आए:
+
+```yaml
+process:
+  name: ABC_INSURANCE
+```
+
+बाकी automation same रहे।
+
+यही धीरे-धीरे आपका **metadata-driven onboarding framework** बन जाएगा।
+
+---
+
+# Long-term automation architecture
+
+Eventually आप इसे इस level तक ले जा सकते हो:
+
+```text
+                   New BDX SQL
+                       +
+                 process_spec.yaml
+                       |
+                       v
+              AI ANALYSIS AGENT
+                       |
+              Existing Repo Scan
+                       |
+             +---------+---------+
+             |                   |
+      Existing Patterns      BDX Rules
+             |                   |
+             +---------+---------+
+                       |
+                       v
+                Mapping Engine
+                       |
+        +--------------+--------------+
+        |              |              |
+      Bronze         Silver          Gold
+    Generator       Generator       Impact
+        |              |              |
+        +--------------+--------------+
+                       |
+                       v
+                 Test Generator
+                       |
+                       v
+               Reconciliation
+                       |
+                       v
+                  Git Diff
+                       |
+                       v
+                Human Review
+                       |
+                       v
+                     PR
+```
+
+यहाँ **Human Review** हटाना नहीं चाहिए।
+
+Business logic वाला data pipeline है, इसलिए AI को सीधे production deploy नहीं करवाना चाहिए।
+
+---
+
+# आपकी command कैसी होनी चाहिए
+
+Daily usage में इतना छोटा instruction काफी हो सकता है:
+
+```text
+Onboard insurance process MERIDIAN.
+
+BDX query:
+reference/bdx/meridian.sql
+
+Process specification:
+config/processes/meridian.yaml
+
+Use Ovation, Ignite and Davis as the validated reference implementations.
+
+Follow the repository onboarding master instructions.
+
+Perform:
+Discovery
+→ BDX reverse engineering
+→ similarity analysis
+→ source-to-target mapping
+→ gap analysis
+→ implementation plan
+→ implementation
+→ tests
+→ BDX reconciliation.
+
+Do not modify existing process behavior.
+```
+
+यानी हर बार 5-page prompt paste करने की जरूरत नहीं।
+
+Master instructions repo में रहें।
+
+---
+
+## और एक important improvement
+
+आपके case में मैं **single agent** पर पूरा काम नहीं छोड़ूँगा।
+
+Conceptually इसे 4 roles में divide करना अच्छा है:
+
+```text
+Agent 1
+ARCHITECT
+Existing architecture समझे
+
+Agent 2
+SQL ANALYST
+BDX query reverse engineer करे
+
+Agent 3
+DATA ENGINEER
+Databricks code बनाए
+
+Agent 4
+VALIDATOR
+Original BDX vs Gold compare करे
+```
+
+एक ही Claude Code/Codex session भी ये roles sequentially perform कर सकता है। आपको necessarily चार अलग AI tools नहीं चाहिए।
+
+---
+
+## मेरी recommendation आपके लिए
+
+अभी immediately कोई sophisticated LangGraph/MCP multi-agent application मत बनाइए।
+
+पहला version रखें:
+
+```text
+Git Repository
++
+Codex / Claude Code
++
+Master Prompt
++
+architecture.md
++
+process_spec.yaml
++
+BDX SQL
+```
+
+और workflow:
+
+```text
+/analyze
+   ↓
+/plan
+   ↓
+human review
+   ↓
+/implement
+   ↓
+/validate
+```
+
+जब 2-3 नए insurance processes इसी mechanism से successfully onboard हो जाएँ, तब इसे Python + Agent SDK/LangGraph के साथ fully automated onboarding tool में convert करना worthwhile होगा।
+
+और आपके career goal के हिसाब से भी यह बहुत strong **Data & AI Architect project** बन सकता है: आप essentially एक **AI-assisted Databricks migration/onboarding framework** बना रहे होंगे, सिर्फ prompt नहीं। ([OpenAI Developers][2])
+
+अगर आप चाहें तो इसी Meridian use case को next step में हम practically **folder-by-folder setup + `architecture.md` + `process_spec.yaml` + agent instruction files** में बदल सकते हैं, ताकि आप सीधे अपने existing Databricks repository में इसे इस्तेमाल कर सको।
+
+[1]: https://developers.openai.com/learn/codex?utm_source=chatgpt.com "Codex | OpenAI Developers"
+[2]: https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide?trk=article-ssr-frontend-pulse_little-text-block&utm_source=chatgpt.com "Codex Prompting Guide"
