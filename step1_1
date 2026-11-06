@@ -1,1 +1,72 @@
-Okay, hello. Yes. तो ये एक अच्छा idea है जो आपने दिया है. तो चलो इसको step by step करते हैं, मतलब कि पूरा का पूरा एकदम नहीं डालते हैं because मेरे पास Cloude है और जैसे ही मैं यहाँ पे extension पे Cloude के extension पे क्लिक करूँगा तो ये समझ जाएगा. Okay? तो मतलब कि अगर मैं browser में Cloude के extension को क्लिक करता हूँ तो he will take the query. Okay? So anyway, from the start, step by step, what is my para step क्या होगा? तो पहले step पे काम करते हैं फिर अगले step पे चलते हैं, इस तरह से करते हैं. So this plan is very good and इस plan से ही चलेंगे. Okay? So give me next step.
+Act as a Senior Azure Databricks Data Architect.
+
+For this step, DO NOT modify any code.
+
+I want you to first understand the existing implementation for these insurance processes:
+
+* Ovation
+* Ignite
+* Davis
+
+Inspect the entire repository and identify all files, notebooks, SQL scripts, PySpark code, configuration files, workflow definitions, and dependencies related to these three processes.
+
+Your goal is to understand how a new insurance process is currently implemented in this Databricks project.
+
+Please identify:
+
+1. Source / Foreign Catalog objects used
+2. Bronze tables created for each process
+3. Bronze ingestion logic
+4. Silver tables used
+5. How all three processes load into the common Silver layer
+6. Gold tables used
+7. Process-specific conditions
+8. Process identifiers or source codes
+9. Joins
+10. Filters
+11. CASE expressions
+12. Derived columns
+13. Data type conversions
+14. Deduplication logic
+15. Null handling
+16. Audit columns
+17. Incremental load logic
+18. MERGE logic
+19. Configuration files
+20. Workflow / job orchestration
+
+Then compare Ovation, Ignite and Davis and produce:
+
+A. A simple architecture flow
+
+Foreign Catalog
+→ Bronze
+→ Silver
+→ Gold
+
+B. A comparison table:
+
+Component | Ovation | Ignite | Davis | Common Pattern
+
+C. Identify what is:
+
+* COMMON / reusable
+* PROCESS-SPECIFIC
+* CONFIGURATION-DRIVEN
+* HARDCODED
+
+D. Identify which existing process would be the best reference/template for onboarding another insurance process.
+
+IMPORTANT:
+
+Do not write or modify any code yet.
+
+Do not assume anything that cannot be verified from the repository.
+
+If something is unclear, mark it as:
+
+REQUIRES CONFIRMATION
+
+At the end, give me a concise summary titled:
+
+"Existing Insurance Process Onboarding Pattern"
